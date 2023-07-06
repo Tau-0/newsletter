@@ -1,22 +1,8 @@
-use actix_web::{web, App, HttpRequest, HttpResponse, HttpServer, Responder};
+use std::net::TcpListener;
 
-async fn greet(req: HttpRequest) -> impl Responder {
-    let name = req.match_info().get("name").unwrap_or("World");
-    return HttpResponse::Ok().body(format!("Hello {}!", &name));
-}
-
-async fn health_check(req: HttpRequest) -> impl Responder {
-    return HttpResponse::Ok();
-}
+use newsletter::run;
 
 #[tokio::main]
 async fn main() -> Result<(), std::io::Error> {
-    HttpServer::new(|| {
-        App::new()
-            .route("/", web::get().to(greet))
-            .route("/{name}", web::get().to(greet))
-    })
-    .bind("127.0.0.1:8000")?
-    .run()
-    .await
+    run(TcpListener::bind("127.0.0.1:8000").expect("Failed to bind 8000 port"))?.await
 }
