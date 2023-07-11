@@ -1,5 +1,6 @@
-use newsletter::startup::run;
+use newsletter::{configuration::get_configuration, startup::run};
 use reqwest::StatusCode;
+use sqlx::{Connection, PgConnection};
 use std::net::TcpListener;
 
 #[tokio::test]
@@ -21,6 +22,11 @@ async fn health_check_works() {
 #[tokio::test]
 async fn subscribe_returns_a_200_for_valid_form_data() {
     let address = spawn_app();
+    let configuration = get_configuration().expect("Failed to read configuration.");
+    let connection_string = configuration.database.connection_string();
+    let mut connection = PgConnection::connect(&connection_string)
+        .await
+        .expect("Failed to connect to DB.");
     let client = reqwest::Client::new();
 
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
@@ -32,7 +38,15 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
         .await
         .expect("Failed to execute request.");
 
-    assert_eq!(StatusCode::OK, response.status())
+    assert_eq!(StatusCode::OK, response.status());
+
+    let saved = sqlx::query!("SELECT email, name FROM subscriptions")
+        .fetch_one(&mut connection)
+        .await
+        .expect("Failed to fetch saved subcription.");
+
+    assert_eq!(saved.email, "ursula_le_guin@gmail.com");
+    assert_eq!(saved.name, "le guin");
 }
 
 #[tokio::test]
